@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-byterent-surface text-white;
+  }
+
+  body {
+    @apply font-sans antialiased min-h-screen;
+    margin: 0;
+  }
+
+  code, pre {
+    @apply font-mono;
+  }
+}
