@@ -14,7 +14,7 @@ export function ContentPreview() {
   });
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10 md:px-10 md:py-12">
+    <div className="mx-auto max-w-5xl px-4 py-8 md:px-10 md:py-12">
       <Link
         to="/"
         className="inline-flex items-center gap-1.5 text-sm text-br-muted hover:text-br-fg"

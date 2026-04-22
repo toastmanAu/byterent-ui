@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { indexer } from '../api/client';
 import { GridIcon, ReceiptIcon, WalletIcon } from './icons';
+import { TopBar } from './TopBar';
 import type { HealthDto } from '../api/types';
 
 interface NavItem {
@@ -25,6 +26,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-br-surface">
+      <TopBar />
       <div className="flex flex-1">
         {/* Sidebar nav (Spotify DNA §4). Slight elevation from surface, no
             structural border — the bg shift is the separator (ui-design §6). */}
@@ -39,9 +41,12 @@ export function Layout() {
                 className={({ isActive }) =>
                   [
                     'group relative flex items-center gap-3 rounded px-3 py-2 text-sm font-medium transition',
+                    // Active has 3 signals (accent bar + bg + white text); hover
+                    // only lightens text and adds a subtle bg — so active always
+                    // reads stronger than hover (ui-design §9 active>hover).
                     isActive
-                      ? 'text-br-fg'
-                      : 'text-br-muted hover:text-br-fg hover:bg-br-surface-2',
+                      ? 'bg-br-surface-2 text-br-fg'
+                      : 'text-br-muted hover:text-br-fg hover:bg-br-surface-2/40',
                   ].join(' ')
                 }
               >
@@ -148,21 +153,27 @@ function HealthIndicator({
 function ActiveLeaseBar() {
   return (
     <div className="sticky bottom-0 z-[100] bg-br-surface-1/95 backdrop-blur supports-[backdrop-filter]:bg-br-surface-1/70 shadow-lg">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3.5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-br-surface-2 text-br-dim">
+      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:gap-4 md:px-6 md:py-3.5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-br-surface-2 text-br-dim md:h-10 md:w-10">
           <WalletIcon />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm text-br-fg">No wallet connected</div>
-          <div className="text-xs text-br-dim">Track your active leases in real-time</div>
+          <div className="text-sm text-br-fg truncate">No wallet connected</div>
+          {/* Sub-copy hidden on mobile to leave room for the CTA (ui-design §2
+              proximity — related signals stay grouped; less-essential copy
+              yields space first). */}
+          <div className="hidden sm:block text-xs text-br-dim">
+            Track your active leases in real-time
+          </div>
         </div>
         <button
           type="button"
-          className="rounded bg-br-accent px-4 py-2 text-sm font-medium text-br-accent-ink transition hover:bg-br-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded bg-br-accent px-3.5 py-2 text-sm font-medium text-br-accent-ink transition hover:bg-br-accent-hover disabled:opacity-40 disabled:cursor-not-allowed md:px-4"
           disabled
           title="Wallet integration ships with Plan 2 SDK"
         >
-          Connect wallet
+          Connect
+          <span className="hidden sm:inline"> wallet</span>
         </button>
       </div>
     </div>

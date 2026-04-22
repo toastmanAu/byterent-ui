@@ -13,7 +13,7 @@ export function Browse() {
   });
 
   return (
-    <div className="px-6 py-10 md:px-10 md:py-12">
+    <div className="px-4 py-8 md:px-10 md:py-12">
       <header className="mb-10 max-w-prose">
         <div className="eyebrow">Active listings</div>
         <h1 className="mt-2 text-xl font-semibold tracking-tight">Rent CKB capacity</h1>
