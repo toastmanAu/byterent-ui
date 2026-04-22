@@ -3,16 +3,60 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: dark;
+  }
+
   html {
-    @apply bg-byterent-surface text-white;
+    @apply bg-br-surface text-br-fg;
   }
 
   body {
     @apply font-sans antialiased min-h-screen;
     margin: 0;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    letter-spacing: 0.005em;
   }
 
-  code, pre {
+  code, pre, kbd, samp {
     @apply font-mono;
+    font-feature-settings: 'zero', 'ss02';
+  }
+
+  /* Consistent focus ring on every interactive element.
+     Per ui-design skill §12: never remove focus outlines. */
+  :where(a, button, [role='button'], input, select, textarea):focus-visible {
+    outline: 2px solid theme('colors.br.accent');
+    outline-offset: 2px;
+    border-radius: inherit;
+  }
+
+  ::selection {
+    background: theme('colors.br.accent-dim');
+    color: theme('colors.br.fg');
+  }
+
+  /* Slimmer scrollbars that don't fight the dark theme. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.br.border-strong') transparent;
+  }
+}
+
+@layer components {
+  .eyebrow {
+    @apply text-xs uppercase text-br-dim;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+
+  .kv-grid {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 16px 24px;
+    align-items: baseline;
   }
 }
