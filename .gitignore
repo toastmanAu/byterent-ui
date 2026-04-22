@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Credentials — never commit
+.env
+.env.*
+!.env.example
+cf_token*
+.wrangler/
+.dev.vars
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
