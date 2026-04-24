@@ -16,22 +16,22 @@ import { ccc } from '@ckb-ccc/core';
 
 const { Uint8, Uint16, Uint64, Byte32, Bytes, table } = ccc.mol;
 
-// ─── Status constants (mirror byterent-types) ─────────────────────────────
+// ─── Status constants (mirror byterent-types/constants.rs) ───────────────
 // `const` objects instead of `enum` because the tsconfig enforces
-// erasableSyntaxOnly (enums require emit at runtime).
+// erasableSyntaxOnly (enums require emit at runtime). Values must match
+// the on-chain Rust source of truth byte-for-byte — the listing-type
+// and lease-type scripts reject any other value.
 
 export const ListingStatus = {
   Open: 0,
-  PartiallyFilled: 1,
-  FullyFilled: 2,
-  Cancelled: 3,
+  Closed: 1,
+  Cancelled: 2,
 } as const;
 export type ListingStatus = (typeof ListingStatus)[keyof typeof ListingStatus];
 
 export const LeaseStatus = {
   Active: 0,
   Expired: 1,
-  Returned: 2,
 } as const;
 export type LeaseStatus = (typeof LeaseStatus)[keyof typeof LeaseStatus];
 

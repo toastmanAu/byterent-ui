@@ -56,7 +56,7 @@ export interface ListingView {
   minFillShannons: bigint;
   allowPartialFill: boolean;
   status: number;
-  statusLabel: 'Open' | 'PartiallyFilled' | 'FullyFilled' | 'Cancelled' | 'Unknown';
+  statusLabel: 'Open' | 'Closed' | 'Cancelled' | 'Unknown';
 }
 
 export interface ListingPage {
@@ -69,10 +69,8 @@ function listingStatusLabel(n: number): ListingView['statusLabel'] {
   switch (n) {
     case ListingStatus.Open:
       return 'Open';
-    case ListingStatus.PartiallyFilled:
-      return 'PartiallyFilled';
-    case ListingStatus.FullyFilled:
-      return 'FullyFilled';
+    case ListingStatus.Closed:
+      return 'Closed';
     case ListingStatus.Cancelled:
       return 'Cancelled';
     default:

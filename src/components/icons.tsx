@@ -84,10 +84,13 @@ export function FileIcon({ size = 20, className }: IconProps) {
 }
 
 export function SettingsIcon({ size = 20, className }: IconProps) {
+  // Cog/gear — 8 teeth on a central hub. Previously this was a sun
+  // (rays from a centre circle) which universally reads as "light
+  // mode toggle" rather than settings.
   return (
     <svg {...defaults} width={size} height={size} className={className}>
+      <path d="M10 2.5c.2 0 .4.15.45.35l.35 1.5a6 6 0 0 1 1.6.67l1.28-.85a.5.5 0 0 1 .62.07l1.4 1.4a.5.5 0 0 1 .07.62l-.85 1.28a6 6 0 0 1 .67 1.6l1.5.35c.2.05.35.25.35.45v2c0 .2-.15.4-.35.45l-1.5.35a6 6 0 0 1-.67 1.6l.85 1.28a.5.5 0 0 1-.07.62l-1.4 1.4a.5.5 0 0 1-.62.07l-1.28-.85a6 6 0 0 1-1.6.67l-.35 1.5a.5.5 0 0 1-.45.35h-2a.5.5 0 0 1-.45-.35l-.35-1.5a6 6 0 0 1-1.6-.67l-1.28.85a.5.5 0 0 1-.62-.07l-1.4-1.4a.5.5 0 0 1-.07-.62l.85-1.28a6 6 0 0 1-.67-1.6l-1.5-.35A.5.5 0 0 1 1.5 11V9c0-.2.15-.4.35-.45l1.5-.35a6 6 0 0 1 .67-1.6l-.85-1.28a.5.5 0 0 1 .07-.62l1.4-1.4a.5.5 0 0 1 .62-.07l1.28.85a6 6 0 0 1 1.6-.67l.35-1.5A.5.5 0 0 1 8 2.5h2Z" />
       <circle cx="10" cy="10" r="2.5" />
-      <path d="M10 1.5v2.5M10 16v2.5M3.5 10H1M19 10h-2.5M14.5 5.5 16 4M4 16l1.5-1.5M14.5 14.5 16 16M4 4l1.5 1.5" />
     </svg>
   );
 }
