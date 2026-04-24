@@ -82,3 +82,12 @@ export function FileIcon({ size = 20, className }: IconProps) {
     </svg>
   );
 }
+
+export function SettingsIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg {...defaults} width={size} height={size} className={className}>
+      <circle cx="10" cy="10" r="2.5" />
+      <path d="M10 1.5v2.5M10 16v2.5M3.5 10H1M19 10h-2.5M14.5 5.5 16 4M4 16l1.5-1.5M14.5 14.5 16 16M4 4l1.5 1.5" />
+    </svg>
+  );
+}

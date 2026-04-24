@@ -1,9 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { indexer } from '../api/client';
-import { GridIcon, ReceiptIcon, WalletIcon } from './icons';
+import { GridIcon, ReceiptIcon, SettingsIcon, WalletIcon } from './icons';
 import { TopBar } from './TopBar';
-import type { HealthDto } from '../api/types';
+import { useWallet } from '../wallet/useWallet';
+import { formatAddress } from '../wallet/formatAddress';
+import type { SyncStatus } from '../api/light/syncStatus';
 
 interface NavItem {
   to: string;
@@ -15,6 +17,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: '/', label: 'Browse', end: true, icon: <GridIcon /> },
   { to: '/leases', label: 'Leases', icon: <ReceiptIcon /> },
+  { to: '/settings', label: 'Settings', icon: <SettingsIcon /> },
 ];
 
 export function Layout() {
@@ -115,34 +118,35 @@ function HealthIndicator({
   error,
   loading,
 }: {
-  data: HealthDto | undefined;
+  data: SyncStatus | undefined;
   error: unknown;
   loading: boolean;
 }) {
+  // Sidebar indicator reflects the public CKB RPC state — that's the
+  // primary read backend since the hybrid rewire. Light-client status
+  // (peer count, sync progress, scripts watched) lives in /settings
+  // since it's only meaningful once the user's wallet is connected.
   const dotColor =
     loading || !data
       ? 'bg-br-faint'
-      : error
+      : error || !data.rpcReachable
       ? 'bg-br-danger'
-      : data.healthy
-      ? 'bg-br-success'
-      : 'bg-br-warning';
-  const status = loading
+      : 'bg-br-success';
+
+  const label = loading
     ? 'connecting'
-    : error
+    : error || !data?.rpcReachable
     ? 'offline'
-    : data?.healthy
-    ? 'healthy'
-    : 'degraded';
+    : 'online';
 
   return (
     <div className="flex items-center gap-2 text-xs">
       <span className={`inline-block h-2 w-2 rounded-full ${dotColor}`} aria-hidden />
       <div className="flex flex-col">
-        <span className="text-br-muted">indexer · {status}</span>
-        {data && !error && (
+        <span className="text-br-muted">rpc · {label}</span>
+        {data && data.rpcReachable && (
           <span className="text-br-dim font-mono">
-            tip {data.tip_block_number.toLocaleString()}
+            tip {data.tipBlock.toLocaleString()}
           </span>
         )}
       </div>
@@ -151,6 +155,8 @@ function HealthIndicator({
 }
 
 function ActiveLeaseBar() {
+  const { isConnected, address, walletName, connect, disconnect } = useWallet();
+
   return (
     <div className="sticky bottom-0 z-[100] bg-br-surface-1/95 backdrop-blur supports-[backdrop-filter]:bg-br-surface-1/70 shadow-lg">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:gap-4 md:px-6 md:py-3.5">
@@ -158,22 +164,39 @@ function ActiveLeaseBar() {
           <WalletIcon />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm text-br-fg truncate">No wallet connected</div>
+          {isConnected && address ? (
+            // Full address, wrapped. `break-all` allows mid-string wrap (CKB
+            // addresses have no natural break points); `font-mono` keeps the
+            // wrapped block rectangular and scannable; `leading-snug` stops
+            // the 3-4 lines from dominating the bar vertically.
+            <div className="font-mono text-[11px] leading-snug text-br-fg break-all">
+              {formatAddress(address)}
+            </div>
+          ) : (
+            <div className="text-sm text-br-fg truncate">No wallet connected</div>
+          )}
           {/* Sub-copy hidden on mobile to leave room for the CTA (ui-design §2
               proximity — related signals stay grouped; less-essential copy
               yields space first). */}
-          <div className="hidden sm:block text-xs text-br-dim">
-            Track your active leases in real-time
+          <div className="hidden sm:block text-xs text-br-dim mt-0.5">
+            {isConnected && walletName
+              ? `via ${walletName}`
+              : 'Track your active leases in real-time'}
           </div>
         </div>
         <button
           type="button"
           className="rounded bg-br-accent px-3.5 py-2 text-sm font-medium text-br-accent-ink transition hover:bg-br-accent-hover disabled:opacity-40 disabled:cursor-not-allowed md:px-4"
-          disabled
-          title="Wallet integration ships with Plan 2 SDK"
+          onClick={isConnected ? disconnect : connect}
         >
-          Connect
-          <span className="hidden sm:inline"> wallet</span>
+          {isConnected ? (
+            'Disconnect'
+          ) : (
+            <>
+              Connect
+              <span className="hidden sm:inline"> wallet</span>
+            </>
+          )}
         </button>
       </div>
     </div>

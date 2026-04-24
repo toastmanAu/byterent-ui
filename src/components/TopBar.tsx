@@ -3,11 +3,12 @@
 // natively; if the nav grows beyond 3-4 items, switch to a menu.
 
 import { NavLink } from 'react-router-dom';
-import { GridIcon, ReceiptIcon } from './icons';
+import { GridIcon, ReceiptIcon, SettingsIcon } from './icons';
 
 const NAV = [
   { to: '/', label: 'Browse', end: true, icon: <GridIcon size={16} /> },
   { to: '/leases', label: 'Leases', icon: <ReceiptIcon size={16} /> },
+  { to: '/settings', label: '', icon: <SettingsIcon size={16} />, ariaLabel: 'Settings' },
 ];
 
 export function TopBar() {
@@ -23,6 +24,7 @@ export function TopBar() {
             key={n.to}
             to={n.to}
             end={n.end}
+            aria-label={n.ariaLabel ?? n.label}
             className={({ isActive }) =>
               [
                 'flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition',

@@ -4,6 +4,7 @@ import { Browse } from './routes/Browse';
 import { ListingDetail } from './routes/ListingDetail';
 import { Leases } from './routes/Leases';
 import { ContentPreview } from './routes/ContentPreview';
+import { Settings } from './routes/Settings';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Route path="listings/:id" element={<ListingDetail />} />
         <Route path="leases" element={<Leases />} />
         <Route path="ckbfs/:typeId" element={<ContentPreview />} />
+        <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
