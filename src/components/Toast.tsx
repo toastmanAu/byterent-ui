@@ -71,10 +71,15 @@ export function ToastContainer() {
     <div
       aria-live="polite"
       aria-atomic="false"
+      // The bottom wallet bar (Layout.tsx → ActiveLeaseBar) is sticky
+      // at the viewport bottom, ~72px tall. Sit the toast above it
+      // so it isn't visually obscured even when the user is scrolled
+      // to the bottom. On pages without the wallet bar the extra
+      // offset just leaves a bit more breathing room — harmless.
       className="
-        pointer-events-none fixed left-0 right-0 bottom-0 z-[300]
+        pointer-events-none fixed left-0 right-0 z-[300]
         flex flex-col items-center gap-2 px-4
-        pb-[calc(env(safe-area-inset-bottom)+16px)]
+        bottom-[calc(env(safe-area-inset-bottom)+84px)]
       "
     >
       {queue.map((m) => (
