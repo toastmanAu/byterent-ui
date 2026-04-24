@@ -32,6 +32,14 @@ const ckbClient = new ccc.ClientPublicTestnet();
 // including the stock JoyID Passkey entry.
 const ON_MOBILE = isMobileDevice();
 
+// One-line startup log so users stuck on the wrong wallet path can
+// share their UA + detected mode via DevTools. Cheap, noisy only at
+// reload time. Remove once UA detection has stabilised across devices.
+// eslint-disable-next-line no-console
+console.log(
+  `[byterent] wallet mode: ${ON_MOBILE ? 'mobile (stock CCC)' : 'desktop (redirect-relay)'} · UA: ${navigator.userAgent}`,
+);
+
 const signersController = ON_MOBILE
   ? undefined
   : new JoyIDRedirectSignersController({

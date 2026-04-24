@@ -11,7 +11,16 @@
 // heuristic. Overridable via ?forceMobile=1 / ?forceDesktop=1 query
 // params so users stuck on the wrong path can self-rescue.
 
-const MOBILE_UA_RE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+// Canonical mobile-UA tokens. Each token appears ONLY in mobile-intent
+// user agents:
+//   - Android — all Android browsers
+//   - iPhone / iPad / iPod — all iOS browsers
+//   - BlackBerry / IEMobile / Opera Mini / webOS — legacy but cheap to keep
+//   - Mobi — catches Firefox Android, Samsung Internet, and any future
+//     mobile UA that follows the "platform-plus-Mobi" convention.
+//     Desktop UAs never contain "Mobi" — unlike the looser "Mobile"
+//     token which can show up in custom browser/extension strings.
+const MOBILE_UA_RE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi\b/i;
 
 export function isMobileDevice(): boolean {
   if (typeof window === 'undefined') return false;

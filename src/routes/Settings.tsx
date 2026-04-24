@@ -11,6 +11,7 @@ import type { JoyIDRedirectSigner, TxPreview } from '@byterent/joyid-connect';
 import { getSyncStatus, type SyncStatus } from '../api/light/syncStatus';
 import { ArrowLeftIcon } from '../components/icons';
 import { useWallet } from '../wallet/useWallet';
+import { isMobileDevice } from '../wallet/isMobileDevice';
 
 const TESTNET_TX_EXPLORER = 'https://testnet.explorer.nervos.org/transaction';
 
@@ -89,8 +90,51 @@ export function Settings() {
         </p>
       </section>
 
+      <WalletModeSection />
+
       <TestSignSection />
     </div>
+  );
+}
+
+function WalletModeSection() {
+  const onMobile = isMobileDevice();
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-br-muted">
+        Wallet mode
+      </h2>
+
+      <dl className="mt-4 grid gap-3 rounded-xl bg-br-surface-1 p-5 text-sm">
+        <Row
+          label="Detected"
+          value={onMobile ? 'mobile (stock CCC)' : 'desktop (redirect-relay)'}
+        />
+        <Row
+          label="Override"
+          value={
+            new URLSearchParams(location.search).get('forceMobile') === '1'
+              ? 'forceMobile=1'
+              : new URLSearchParams(location.search).get('forceDesktop') === '1'
+                ? 'forceDesktop=1'
+                : '—'
+          }
+        />
+        <div className="flex items-start justify-between gap-4">
+          <dt className="text-br-dim shrink-0">User-Agent</dt>
+          <dd className="font-mono text-[11px] text-br-fg break-all text-right">
+            {ua}
+          </dd>
+        </div>
+      </dl>
+
+      <p className="mt-3 text-xs text-br-dim">
+        Append <span className="font-mono">?forceDesktop=1</span> or{' '}
+        <span className="font-mono">?forceMobile=1</span> to the URL to override.
+      </p>
+    </section>
   );
 }
 
