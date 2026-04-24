@@ -4,11 +4,26 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ccc } from '@ckb-ccc/connector-react';
-import { JoyIDRedirectSignersController } from '@byterent/joyid-connect';
+import {
+  JoyIDRedirectSignersController,
+  hydrateJoyIDRedirect,
+} from '@byterent/joyid-connect';
 import { JoyIDConnectProvider } from '@byterent/joyid-connect/react';
 import { isMobileDevice } from './wallet/isMobileDevice';
 import './index.css';
 import App from './App.tsx';
+
+// Keep the wallet storage key used by both the desktop and mobile
+// controllers in one constant so the matching hydrate call reads the
+// same slot.
+const WALLET_STORAGE_KEY = 'byterent.wallet.joyid_connection';
+
+// Consume any JoyID redirect payload in the current URL BEFORE CCC
+// mounts. On mobile, the same-device connect flow lands back here
+// with `?_data_=…&joyid-redirect=true` — hydration writes the auth
+// into localStorage so CCC picks it up via signer.isConnected().
+// No-op on every normal load.
+hydrateJoyIDRedirect({ storageKey: WALLET_STORAGE_KEY });
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,12 +55,17 @@ console.log(
   `[byterent] wallet mode: ${ON_MOBILE ? 'mobile (stock CCC)' : 'desktop (redirect-relay)'} · UA: ${navigator.userAgent}`,
 );
 
-const signersController = ON_MOBILE
-  ? undefined
-  : new JoyIDRedirectSignersController({
-      network: 'testnet',
-      storageKey: 'byterent.wallet.joyid_connection',
-    });
+// Both paths use OUR controller now, but with different modes:
+//   - Desktop: cross-device (QR → phone → redirect-relay Worker).
+//   - Mobile: same-device (top-level nav to JoyID, redirect back here).
+// Stock CCC JoyID Passkey (popup mode) is unreliable on both — desktop
+// because of Chrome's caBLE transport, mobile because iOS Safari drops
+// window.opener on tab switch.
+const signersController = new JoyIDRedirectSignersController({
+  network: 'testnet',
+  storageKey: WALLET_STORAGE_KEY,
+  sameDevice: ON_MOBILE,
+});
 
 const APP_NAME = 'ByteRent';
 // JoyID fetches this URL from its own servers to render our brand during
