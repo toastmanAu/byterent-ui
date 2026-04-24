@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ccc } from '@ckb-ccc/connector-react';
 import { JoyIDRedirectSignersController } from '@byterent/joyid-connect';
 import { JoyIDConnectProvider } from '@byterent/joyid-connect/react';
+import { isMobileDevice } from './wallet/isMobileDevice';
 import './index.css';
 import App from './App.tsx';
 
@@ -20,13 +21,23 @@ const queryClient = new QueryClient({
 
 const ckbClient = new ccc.ClientPublicTestnet();
 
-// Swap CCC's default JoyID signer (popup + WebAuthn hybrid, flaky) for
-// the redirect-relay signer. Storage key is branded so multiple dApps on
-// the same origin don't collide if someone ever shares localStorage.
-const signersController = new JoyIDRedirectSignersController({
-  network: 'testnet',
-  storageKey: 'byterent.wallet.joyid_connection',
-});
+// On a desktop browser, CCC's stock JoyID signer relies on a popup +
+// Chrome's FIDO hybrid (caBLE) QR pairing — notoriously flaky on
+// Linux/Chrome. We swap it for the redirect-relay signer that brokers
+// through our own Cloudflare Worker.
+//
+// On a mobile browser, JoyID's native popup flow works fine (the device
+// has the passkey locally — no cross-device handoff needed). There we
+// skip our controller entirely so CCC's default wallet picker runs,
+// including the stock JoyID Passkey entry.
+const ON_MOBILE = isMobileDevice();
+
+const signersController = ON_MOBILE
+  ? undefined
+  : new JoyIDRedirectSignersController({
+      network: 'testnet',
+      storageKey: 'byterent.wallet.joyid_connection',
+    });
 
 const APP_NAME = 'ByteRent';
 // JoyID fetches this URL from its own servers to render our brand during
@@ -50,15 +61,21 @@ createRoot(document.getElementById('root')!).render(
         icon={APP_ICON}
         signersController={signersController}
       >
-        <JoyIDConnectProviderWithCccClose
-          appName={APP_NAME}
-          appIcon={APP_ICON}
-          workerUrl={WORKER_URL}
-        >
+        {ON_MOBILE ? (
           <BrowserRouter>
             <App />
           </BrowserRouter>
-        </JoyIDConnectProviderWithCccClose>
+        ) : (
+          <JoyIDConnectProviderWithCccClose
+            appName={APP_NAME}
+            appIcon={APP_ICON}
+            workerUrl={WORKER_URL}
+          >
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </JoyIDConnectProviderWithCccClose>
+        )}
       </ccc.Provider>
     </QueryClientProvider>
   </StrictMode>,
