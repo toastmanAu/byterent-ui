@@ -1,0 +1,40 @@
+# ByteRent JoyID auth relay.
+#
+# Thin Cloudflare Worker + Durable Object that exists to decouple the
+# wallet-connect flow from anything running on driveThree. Routes:
+#
+#   POST /session                     — create a session, returns { id }
+#   GET  /session/:id                 — PC polls; returns { data, expired }
+#   GET  /session/:id/callback        — JoyID redirect target on the phone;
+#                                       stores ?_data_= payload in the DO
+#                                       and shows a "Done" page
+#
+# One Durable Object instance per session id (via idFromName) means both
+# devices hit the same storage runtime — strong consistency, no KV lag.
+
+name = "byterent-auth"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+# Keep the .workers.dev URL alive alongside the custom domain — useful for
+# debugging and as an instant fallback if auth.byterent.xyz ever has a
+# DNS/cert issue.
+workers_dev = true
+preview_urls = true
+
+# Durable Object for per-session state. SQLite-backed classes are available
+# on the Workers Free plan; we use that variant explicitly.
+[[durable_objects.bindings]]
+name = "AUTH_SESSION"
+class_name = "AuthSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AuthSession"]
+
+# Custom domain. Wrangler auto-provisions the DNS record + TLS cert against
+# the byterent.xyz zone (same CF account). On `wrangler deploy` the first
+# time, expect ~30-60s for cert issuance — the Worker is reachable at its
+# .workers.dev URL throughout.
+[[routes]]
+pattern = "auth.byterent.xyz"
+custom_domain = true

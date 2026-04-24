@@ -1,0 +1,18 @@
+{
+  "name": "byterent-auth-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --port 8787",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "@byterent/joyid-relay": "file:../../joyid-ckb-connector/packages/joyid-relay"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260101.0",
+    "typescript": "~6.0.2",
+    "wrangler": "^4.84.1"
+  }
+}
