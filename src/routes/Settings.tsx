@@ -3,11 +3,12 @@
 // keep the route for future settings + to show the user diagnostics
 // about the local light client's sync state and peer count.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ccc } from '@ckb-ccc/connector-react';
 import type { JoyIDRedirectSigner, TxPreview } from '@byterent/joyid-connect';
+import { consumeSameDeviceSignResult } from '@byterent/joyid-connect';
 import { getSyncStatus, type SyncStatus } from '../api/light/syncStatus';
 import { ArrowLeftIcon } from '../components/icons';
 import { useWallet } from '../wallet/useWallet';
@@ -148,6 +149,33 @@ function TestSignSection() {
     | { kind: 'done'; txHash: string }
     | { kind: 'error'; message: string }
   >({ kind: 'idle' });
+
+  // On mobile, signOnlyTransaction navigates away — the click handler
+  // never reaches the submit step. On return, consumeSameDeviceSignResult
+  // hands us the reconstructed signed tx. Submit it here + display the
+  // result, same UI state machine as the desktop flow.
+  //
+  // useRef gate prevents React 19 StrictMode's dev double-invoke from
+  // consuming the result twice (second call would return null anyway
+  // since state is cleared, but the visible "submitting" → "done" flash
+  // only needs to run once).
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current) return;
+    resumed.current = true;
+    const result = consumeSameDeviceSignResult();
+    if (!result || !signer) return;
+    setStatus({ kind: 'submitting' });
+    signer.client
+      .sendTransaction(result.signedTx)
+      .then((txHash) => setStatus({ kind: 'done', txHash }))
+      .catch((err: unknown) =>
+        setStatus({
+          kind: 'error',
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
+  }, [signer]);
 
   const onClick = async () => {
     if (!signer || !address) return;
