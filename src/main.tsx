@@ -10,6 +10,7 @@ import {
 } from '@byterent/joyid-connect';
 import { JoyIDConnectProvider } from '@byterent/joyid-connect/react';
 import { isMobileDevice } from './wallet/isMobileDevice';
+import { ToastContainer } from './components/Toast';
 import './index.css';
 import App from './App.tsx';
 
@@ -104,6 +105,7 @@ createRoot(document.getElementById('root')!).render(
             </BrowserRouter>
           </JoyIDConnectProviderWithCccClose>
         )}
+        <ToastContainer />
       </ccc.Provider>
     </QueryClientProvider>
   </StrictMode>,

@@ -13,6 +13,8 @@ import { getSyncStatus, type SyncStatus } from '../api/light/syncStatus';
 import { ArrowLeftIcon } from '../components/icons';
 import { useWallet } from '../wallet/useWallet';
 import { isMobileDevice } from '../wallet/isMobileDevice';
+import { MobileSignConfirm } from '../wallet/MobileSignConfirm';
+import { toast } from '../components/Toast';
 
 const TESTNET_TX_EXPLORER = 'https://testnet.explorer.nervos.org/transaction';
 
@@ -150,15 +152,23 @@ function TestSignSection() {
     | { kind: 'error'; message: string }
   >({ kind: 'idle' });
 
+  // On mobile, the sign flow needs a staging step: we build the tx
+  // + preview, show the user an in-app confirmation modal, and only
+  // on Confirm do we stage pendingPreview + trigger the navigation
+  // away to JoyID. This stash holds the built tx + preview while
+  // the modal is up.
+  const [pendingMobileSign, setPendingMobileSign] = useState<
+    | { tx: ccc.Transaction; preview: TxPreview }
+    | null
+  >(null);
+
   // On mobile, signOnlyTransaction navigates away — the click handler
   // never reaches the submit step. On return, consumeSameDeviceSignResult
   // hands us the reconstructed signed tx. Submit it here + display the
   // result, same UI state machine as the desktop flow.
   //
   // useRef gate prevents React 19 StrictMode's dev double-invoke from
-  // consuming the result twice (second call would return null anyway
-  // since state is cleared, but the visible "submitting" → "done" flash
-  // only needs to run once).
+  // consuming the result twice.
   const resumed = useRef(false);
   useEffect(() => {
     if (resumed.current) return;
@@ -168,13 +178,18 @@ function TestSignSection() {
     setStatus({ kind: 'submitting' });
     signer.client
       .sendTransaction(result.signedTx)
-      .then((txHash) => setStatus({ kind: 'done', txHash }))
-      .catch((err: unknown) =>
-        setStatus({
-          kind: 'error',
-          message: err instanceof Error ? err.message : String(err),
-        }),
-      );
+      .then((txHash) => {
+        setStatus({ kind: 'done', txHash });
+        toast.success('Transaction submitted', {
+          href: `${TESTNET_TX_EXPLORER}/${txHash}`,
+          hrefLabel: `${txHash.slice(0, 10)}…${txHash.slice(-8)}`,
+        });
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        setStatus({ kind: 'error', message });
+        toast.error(`Submit failed: ${message}`);
+      });
   }, [signer]);
 
   const onClick = async () => {
@@ -253,12 +268,22 @@ function TestSignSection() {
         network: 'testnet',
       };
 
-      // JoyIDRedirectSigner has a side-channel `pendingPreview` field
-      // the library exposes for this. Cast is safe: the connector
-      // extends ccc.Signer with the extra field, not every Signer has it.
+      // Stage preview on the signer's side-channel. Desktop: shown
+      // on the phone-side preview page at auth.byterent.xyz/tx-launch.
+      // Mobile: shown by the in-app MobileSignConfirm modal below
+      // before navigation. Same TxPreview shape either way.
       const joyIdSigner = signer as unknown as JoyIDRedirectSigner;
       if ('pendingPreview' in joyIdSigner) {
         joyIdSigner.pendingPreview = preview;
+      }
+
+      if (isMobileDevice()) {
+        // Mobile: show the in-app confirmation modal. Actually
+        // calling signOnlyTransaction (which navigates away) is
+        // gated on the user tapping Confirm in that modal. Status
+        // stays 'building' until they respond.
+        setPendingMobileSign({ tx, preview });
+        return;
       }
 
       setStatus({ kind: 'waiting' });
@@ -267,12 +292,36 @@ function TestSignSection() {
       setStatus({ kind: 'submitting' });
       const txHash = await signer.client.sendTransaction(signed);
       setStatus({ kind: 'done', txHash });
-    } catch (err) {
-      setStatus({
-        kind: 'error',
-        message: err instanceof Error ? err.message : String(err),
+      toast.success('Transaction submitted', {
+        href: `${TESTNET_TX_EXPLORER}/${txHash}`,
+        hrefLabel: `${txHash.slice(0, 10)}…${txHash.slice(-8)}`,
       });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setStatus({ kind: 'error', message });
+      toast.error(`Sign failed: ${message}`);
     }
+  };
+
+  const onMobileConfirm = () => {
+    if (!pendingMobileSign || !signer) return;
+    setPendingMobileSign(null);
+    setStatus({ kind: 'waiting' });
+    // This navigates away; the promise never resolves. Return path
+    // is the useEffect above consuming consumeSameDeviceSignResult.
+    void signer.signOnlyTransaction(pendingMobileSign.tx).catch((err: unknown) => {
+      // Only reached if the library throws synchronously BEFORE
+      // navigation (e.g. missing signer state, challenge compute
+      // failure). A successful path never lands here.
+      const message = err instanceof Error ? err.message : String(err);
+      setStatus({ kind: 'error', message });
+      toast.error(`Sign failed: ${message}`);
+    });
+  };
+
+  const onMobileCancel = () => {
+    setPendingMobileSign(null);
+    setStatus({ kind: 'idle' });
   };
 
   return (
@@ -326,6 +375,14 @@ function TestSignSection() {
           </div>
         )}
       </div>
+
+      {pendingMobileSign && (
+        <MobileSignConfirm
+          preview={pendingMobileSign.preview}
+          onConfirm={onMobileConfirm}
+          onCancel={onMobileCancel}
+        />
+      )}
     </section>
   );
 }
