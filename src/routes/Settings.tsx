@@ -3,10 +3,15 @@
 // keep the route for future settings + to show the user diagnostics
 // about the local light client's sync state and peer count.
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { ccc } from '@ckb-ccc/connector-react';
 import { getSyncStatus, type SyncStatus } from '../api/light/syncStatus';
 import { ArrowLeftIcon } from '../components/icons';
+import { useWallet } from '../wallet/useWallet';
+
+const TESTNET_TX_EXPLORER = 'https://testnet.explorer.nervos.org/transaction';
 
 export function Settings() {
   const navigate = useNavigate();
@@ -65,7 +70,123 @@ export function Settings() {
           are instant (state lives in IndexedDB).
         </p>
       </section>
+
+      <TestSignSection />
     </div>
+  );
+}
+
+function TestSignSection() {
+  const { isConnected, signer, address } = useWallet();
+  const [status, setStatus] = useState<
+    | { kind: 'idle' }
+    | { kind: 'building' }
+    | { kind: 'waiting' }
+    | { kind: 'submitting' }
+    | { kind: 'done'; txHash: string }
+    | { kind: 'error'; message: string }
+  >({ kind: 'idle' });
+
+  const onClick = async () => {
+    if (!signer || !address) return;
+    setStatus({ kind: 'building' });
+    try {
+      // 64-byte self-transfer: send 62 CKB (sighash min capacity) back
+      // to the same address. Smallest realistic JoyID-signed tx —
+      // exercises the full redirect-relay path without needing any
+      // ByteRent-specific scripts.
+      const tx = ccc.Transaction.from({
+        outputs: [
+          {
+            lock: (await signer.getRecommendedAddressObj()).script,
+            capacity: ccc.fixedPointFrom(62),
+          },
+        ],
+        outputsData: ['0x'],
+      });
+
+      await tx.completeInputsByCapacity(signer);
+
+      // ckb-transactions.md §1: pad witness[0] with 1000-byte
+      // placeholder BEFORE completeFeeBy so fee estimate accounts for
+      // JoyID's real lock size. Subsequent signing trims it back.
+      const placeholder = ccc.WitnessArgs.from({
+        lock: '0x' + '00'.repeat(1000),
+      });
+      if (tx.witnesses.length === 0) {
+        tx.witnesses.push(ccc.hexFrom(placeholder.toBytes()));
+      } else {
+        tx.witnesses[0] = ccc.hexFrom(placeholder.toBytes());
+      }
+
+      await tx.completeFeeBy(signer, 1000);
+
+      setStatus({ kind: 'waiting' });
+      const signed = await signer.signOnlyTransaction(tx);
+
+      setStatus({ kind: 'submitting' });
+      const txHash = await signer.client.sendTransaction(signed);
+      setStatus({ kind: 'done', txHash });
+    } catch (err) {
+      setStatus({
+        kind: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-br-muted">
+        Developer · sign test
+      </h2>
+
+      <div className="mt-4 rounded-xl bg-br-surface-1 p-5 text-sm">
+        <p className="text-br-dim">
+          Exercises the JoyID redirect-relay signing path end-to-end by sending{' '}
+          <span className="font-mono text-br-fg">62 Fibt</span> back to yourself
+          on testnet. Returns a real tx hash you can look up on-chain.
+        </p>
+
+        {!isConnected && (
+          <p className="mt-3 text-xs text-br-warning">
+            Connect a wallet first — the sign button stays disabled until a JoyID
+            session is active.
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={!isConnected || status.kind === 'building' || status.kind === 'waiting' || status.kind === 'submitting'}
+          className="mt-4 rounded bg-br-accent px-4 py-2 text-sm font-medium text-br-accent-ink transition hover:bg-br-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {status.kind === 'building' && 'Building tx…'}
+          {status.kind === 'waiting' && 'Waiting for phone…'}
+          {status.kind === 'submitting' && 'Submitting…'}
+          {(status.kind === 'idle' || status.kind === 'done' || status.kind === 'error') && 'Sign test transaction'}
+        </button>
+
+        {status.kind === 'done' && (
+          <div className="mt-4 rounded bg-br-surface-2 p-3 text-xs">
+            <div className="text-br-success">Tx accepted by pool ✓</div>
+            <a
+              href={`${TESTNET_TX_EXPLORER}/${status.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 block font-mono text-[11px] break-all text-br-accent hover:underline"
+            >
+              {status.txHash}
+            </a>
+          </div>
+        )}
+        {status.kind === 'error' && (
+          <div className="mt-4 rounded bg-br-surface-2 p-3 text-xs text-br-danger">
+            {status.message}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

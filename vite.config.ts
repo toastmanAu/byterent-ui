@@ -13,6 +13,14 @@ export default defineConfig({
     alias: {
       buffer: 'buffer',
     },
+    // `@byterent/joyid-connect` is consumed via a `file:` link from a
+    // sibling monorepo, and npm keeps a parallel copy of React in that
+    // workspace's node_modules. Without dedupe, the connector's dist
+    // imports its workspace React while the app uses ours — two
+    // instances, `useState` returns null at the second, whole tree
+    // crashes. Force single copies of both React and its ecosystem
+    // hook-callers.
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
   },
   define: {
     // Some libs check `global` instead of `window`.
