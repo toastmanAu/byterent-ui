@@ -7,11 +7,29 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ccc } from '@ckb-ccc/connector-react';
+import type { JoyIDRedirectSigner, TxPreview } from '@byterent/joyid-connect';
 import { getSyncStatus, type SyncStatus } from '../api/light/syncStatus';
 import { ArrowLeftIcon } from '../components/icons';
 import { useWallet } from '../wallet/useWallet';
 
 const TESTNET_TX_EXPLORER = 'https://testnet.explorer.nervos.org/transaction';
+
+// Wallet addresses on CKB are ~100 chars. Truncate for preview rows
+// so the phone UI doesn't wrap into a scrollable block.
+function truncateAddress(addr: string, keep = 8): string {
+  if (addr.length <= keep * 2 + 3) return addr;
+  return `${addr.slice(0, keep)}…${addr.slice(-keep)}`;
+}
+
+// Convert a fee in shannons to a friendly "X.XXX CKB" — at pool-min
+// fees this is typically <0.001 CKB so we drop to shannons for display.
+function formatFee(shannons: bigint): string {
+  if (shannons < 100_000_000n) return `${shannons.toString()} shannons`;
+  // Divide keeping 8 decimals, then trim trailing zeros.
+  const whole = shannons / 100_000_000n;
+  const frac = (shannons % 100_000_000n).toString().padStart(8, '0').replace(/0+$/, '');
+  return frac.length ? `${whole}.${frac} CKB` : `${whole} CKB`;
+}
 
 export function Settings() {
   const navigate = useNavigate();
@@ -91,25 +109,46 @@ function TestSignSection() {
     if (!signer || !address) return;
     setStatus({ kind: 'building' });
     try {
-      // 64-byte self-transfer: send 62 CKB (sighash min capacity) back
-      // to the same address. Smallest realistic JoyID-signed tx —
-      // exercises the full redirect-relay path without needing any
-      // ByteRent-specific scripts.
+      // Self-transfer at the minimum viable capacity for the wallet's
+      // own lock script. Different locks have different arg lengths
+      // (secp256k1 = 20B, JoyID = 22B, etc.) so their min-occupied
+      // capacity differs — compute from the script rather than
+      // hard-coding. `occupiedSize` returns: code_hash(32) + hash_type(1)
+      // + args.length. The output also needs 8 bytes for its own
+      // capacity field. Add 1 CKB of headroom so the tx survives
+      // any small padding changes.
+      const ownerScript = (await signer.getRecommendedAddressObj()).script;
+      const minCellBytes = 8 + ownerScript.occupiedSize;
+      const capacity = ccc.fixedPointFrom(minCellBytes + 1);
+
       const tx = ccc.Transaction.from({
         outputs: [
           {
-            lock: (await signer.getRecommendedAddressObj()).script,
-            capacity: ccc.fixedPointFrom(62),
+            lock: ownerScript,
+            capacity,
           },
         ],
         outputsData: ['0x'],
       });
 
+      // Attach the JoyID lock cell_dep BEFORE input collection. CCC's
+      // completeFee loop can fail to re-apply the signer's prepareTransaction
+      // cell_deps in change iterations — empirically we hit ScriptNotFound
+      // on the JoyID lock code hash when relying on prepareTransaction alone.
+      // Adding it up front survives every loop iteration because cellDeps
+      // only grows, never clears.
+      await tx.addCellDepsOfKnownScripts(signer.client, ccc.KnownScript.JoyId);
+
       await tx.completeInputsByCapacity(signer);
 
-      // ckb-transactions.md §1: pad witness[0] with 1000-byte
-      // placeholder BEFORE completeFeeBy so fee estimate accounts for
-      // JoyID's real lock size. Subsequent signing trims it back.
+      // ckb-transactions.md §1: pre-pad witness[0] with a 1000-byte
+      // WitnessArgs lock placeholder BEFORE completeFeeBy. The signer's
+      // prepareTransaction also pads, but CCC's completeFee clone-and-
+      // copy loop can lose the padding in some iterations — we've seen
+      // fee under-counts of ~384 bytes on JoyID txs when relying on
+      // prepareTransaction alone. Padding here guarantees the fee
+      // estimator sees a conservative witness size from the first
+      // measurement.
       const placeholder = ccc.WitnessArgs.from({
         lock: '0x' + '00'.repeat(1000),
       });
@@ -120,6 +159,35 @@ function TestSignSection() {
       }
 
       await tx.completeFeeBy(signer, 1000);
+
+      // Stage a human-readable preview for the phone-side confirmation
+      // page. The signer consumes `pendingPreview` once and clears it,
+      // so this has to happen right before the sign call. Fee is the
+      // net (inputs - outputs) at this point, since completeFeeBy has
+      // balanced the tx.
+      const inputsCap = await tx.getInputsCapacity(signer.client);
+      const outputsCap = tx.getOutputsCapacity();
+      const feeShannons = inputsCap - outputsCap;
+
+      const preview: TxPreview = {
+        title: 'Test self-transfer',
+        amount: `${capacity / 100_000_000n} CKB`,
+        details: [
+          { label: 'From', value: truncateAddress(address), mono: true },
+          { label: 'To', value: truncateAddress(address), mono: true },
+          { label: 'Network fee', value: formatFee(feeShannons) },
+          { label: 'Purpose', value: 'Wallet-signing smoke test' },
+        ],
+        network: 'testnet',
+      };
+
+      // JoyIDRedirectSigner has a side-channel `pendingPreview` field
+      // the library exposes for this. Cast is safe: the connector
+      // extends ccc.Signer with the extra field, not every Signer has it.
+      const joyIdSigner = signer as unknown as JoyIDRedirectSigner;
+      if ('pendingPreview' in joyIdSigner) {
+        joyIdSigner.pendingPreview = preview;
+      }
 
       setStatus({ kind: 'waiting' });
       const signed = await signer.signOnlyTransaction(tx);
@@ -144,7 +212,7 @@ function TestSignSection() {
       <div className="mt-4 rounded-xl bg-br-surface-1 p-5 text-sm">
         <p className="text-br-dim">
           Exercises the JoyID redirect-relay signing path end-to-end by sending{' '}
-          <span className="font-mono text-br-fg">62 Fibt</span> back to yourself
+          <span className="font-mono text-br-fg">62 CKB</span> back to yourself
           on testnet. Returns a real tx hash you can look up on-chain.
         </p>
 

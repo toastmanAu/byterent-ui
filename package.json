@@ -12,6 +12,7 @@
   "dependencies": {
     "@byterent/joyid-connect": "file:../joyid-ckb-connector/packages/joyid-connect",
     "@ckb-ccc/connector-react": "^1.0.34",
+    "@joyid/ckb": "^1.1.4",
     "@joyid/common": "^0.2.2",
     "@nervosnetwork/ckb-light-client-js": "^0.5.5",
     "@tanstack/react-query": "^5.99.2",
