@@ -148,12 +148,16 @@ export async function buildMintListingTx(
   // pad happens in the completeFeeBy step below.
   await tx.completeInputsByCapacity(signer);
 
-  // ckb-transactions.md §1: pre-pad witness[0] with a 1000-byte lock
-  // placeholder BEFORE fee estimation. Signer's prepareTransaction does
-  // this too, but CCC's clone-and-copy-back loop can lose the padding
-  // in some iterations — producing fee under-counts.
+  // ckb-transactions.md §1: pre-pad witness[0] BEFORE fee estimation.
+  // 3500 bytes here (not the 1000 we use for the plain self-transfer
+  // test) because JoyID tx signatures on the mint-listing path hit
+  // 2431 bytes of real-vs-estimated drift in practice — JoyID's
+  // signed lock includes a WebAuthn authenticatorData + full
+  // clientDataJSON bundle on top of the raw sig, which scales past
+  // the 1000-byte placeholder we use elsewhere. Overpay is ~1-2 shan
+  // per extra byte; worth the insurance.
   const placeholder = ccc.WitnessArgs.from({
-    lock: '0x' + '00'.repeat(1000),
+    lock: '0x' + '00'.repeat(3500),
   });
   if (tx.witnesses.length === 0) {
     tx.witnesses.push(ccc.hexFrom(placeholder.toBytes()));
