@@ -10,9 +10,17 @@ import {
 } from '@byterent/joyid-connect';
 import { JoyIDConnectProvider } from '@byterent/joyid-connect/react';
 import { isMobileDevice } from './wallet/isMobileDevice';
-import { ToastContainer } from './components/Toast';
+import { ToastContainer, toast } from './components/Toast';
 import './index.css';
 import App from './App.tsx';
+
+// `?toastTest=1` — dev flag that fires a toast 500ms after load,
+// for smoke-testing the notification system without driving a sign.
+if (new URLSearchParams(window.location.search).get('toastTest') === '1') {
+  setTimeout(() => {
+    toast.info('Toast system live — this is a smoke test');
+  }, 500);
+}
 
 // Keep the wallet storage key used by both the desktop and mobile
 // controllers in one constant so the matching hydrate call reads the

@@ -28,11 +28,23 @@ type Listener = (t: ToastMessage) => void;
 // Module-level subscription bus. The container subscribes on mount,
 // producers call emit() from anywhere. Keeps the public API
 // hook-free, so callers don't need a provider wrapper.
+//
+// `pending` buffers emissions fired BEFORE any listener registers.
+// React commits sibling subtrees in render order — BrowserRouter's
+// subtree effects fire before ToastContainer's effect, so fast
+// post-mount emissions (e.g. a sendTransaction that resolved from
+// cache) would otherwise land in an empty listener Set and vanish.
+// Any listener that registers later flushes + clears the buffer.
 let nextId = 1;
 const listeners = new Set<Listener>();
+const pending: ToastMessage[] = [];
 
 function emit(kind: ToastKind, text: string, extra?: Pick<ToastMessage, 'href' | 'hrefLabel'>) {
   const msg: ToastMessage = { id: nextId++, kind, text, ...extra };
+  if (listeners.size === 0) {
+    pending.push(msg);
+    return;
+  }
   for (const l of listeners) l(msg);
 }
 
@@ -60,6 +72,15 @@ export function ToastContainer() {
       }, DEFAULT_TTL_MS);
     };
     listeners.add(listener);
+
+    // Flush any emissions that fired before this container mounted.
+    // See the `pending` comment in the emit path for why this buffer
+    // exists at all.
+    if (pending.length > 0) {
+      for (const msg of pending) listener(msg);
+      pending.length = 0;
+    }
+
     return () => {
       listeners.delete(listener);
     };

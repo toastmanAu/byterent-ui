@@ -167,14 +167,18 @@ function TestSignSection() {
   // hands us the reconstructed signed tx. Submit it here + display the
   // result, same UI state machine as the desktop flow.
   //
-  // useRef gate prevents React 19 StrictMode's dev double-invoke from
-  // consuming the result twice.
+  // Order matters: wait for `signer` to hydrate BEFORE consuming the
+  // sign result. CCC's signer is lazy — on first render after a page
+  // load it can briefly be undefined while useCcc restores from
+  // localStorage. If we consumed before signer was ready, the
+  // one-shot localStorage slot would clear with nothing to submit to.
   const resumed = useRef(false);
   useEffect(() => {
+    if (!signer) return;
     if (resumed.current) return;
-    resumed.current = true;
     const result = consumeSameDeviceSignResult();
-    if (!result || !signer) return;
+    if (!result) return;
+    resumed.current = true;
     setStatus({ kind: 'submitting' });
     signer.client
       .sendTransaction(result.signedTx)
